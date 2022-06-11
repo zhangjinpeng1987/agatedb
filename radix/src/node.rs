@@ -1,10 +1,13 @@
 // https://db.in.tum.de/~leis/papers/ART.pdf Adaptive Radix Tree Node
 
 use std::ptr;
-use std::sync::atomic::{AtomicU32, AtomicU8, AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU8, AtomicU64, AtomicPtr, Ordering};
+use std::sync::Arc;
 
+use crate trie_rs::TrieBuilder;
+
+/*
 #[repr(C)]
-#[derive(Default)]
 pub enum Node {
     Node4 {
         keys: AtomicU32, // 4 * U8
@@ -12,7 +15,8 @@ pub enum Node {
         children_cnt: AtomicU8,
     },
     Node16 {
-        keys: AtomicU128, // 16 * U8
+        keys_1: AtomicU64, // 8 U8
+        keys_2: AtomicU64, // 8 U8
         children_addr: [AtomicPtr<Node>; 16],
         children_cnt: AtomicU8,
     },
@@ -22,14 +26,14 @@ pub enum Node {
         children_cnt: AtomicU8,
     },
     Node256 {
-        children_addr[AtomicPtr<BoxNode>; 256],
+        children_addr: [AtomicPtr<Node>; 256],
     }
 }
 
 const EMPTY: u8 = 255;
 
-impl Default for Node::Node48 {
-    pub fn default() -> Self {
+impl Default for Node::Node16 {
+    fn default() -> Self {
         Self {
             keys: [AtomicU8::new(EMPTY)],
             ..Self::default(),
@@ -164,9 +168,9 @@ impl Node {
     pub fn grow(&self) -> *mut Node {
         match self {
             Self::Node4 { ref keys, ref children_addr, ref children_cnt } => {
-                let cnt = children_cnt.load(Odering::Acquire);
+                let cnt = children_cnt.load(Ordering::Acquire);
                 assert_eq!(cnt, 4);
-                let mut new_node = Self::Node16::default();
+                let mut new_node = Node::Node16::default();
                 new_node.keys.store(keys.load(Ordering::Acquire), Ordering::Relaxed);
                 for i in 0..4 {
                     new_node.children_addr[i].store(children_addr[i].load(Ordering::Acquire));
@@ -222,7 +226,7 @@ impl Node {
         }
     }
 }
-
+ 
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,14 +237,13 @@ mod tests {
         let n16 = Node::Node16::default();
     }
 }
+*/
 
-/*
-pub trait Node {
-    pub fn find_child(&self, partial_key: u8) -> *mut Node;
-    pub fn set_child(&mut self, parial_key: u8, child: *mut Node);
-    pub fn grow(&self) -> *mut Node;
-    pub fn is_full(&self) -> bool;
-    
+pub trait NodeTrait {
+    fn find_child(&self, partial_key: u8) -> Option<Arc<Box<dyn NodeTrait>>>;
+    fn set_child(&mut self, parial_key: u8, child: *mut Node);
+    fn grow(&self) -> Box<dyn Node>;
+    fn is_full(&self) -> bool;
 }
 
 #[repr(C)]
@@ -295,12 +298,14 @@ impl Node for Node4 {
     }
 
     pub fn grow(&mut self) -> *mut Node {
+        let cnt = children_cnt.load(Odering::Acquire);
+        assert_eq!(cnt, 4);
         let mut new_node = Node16::default();
-        new_node.keys.store(self.keys.load(Ordering::Acquire), Ordering::Relaxed);
+        new_node.keys.store(keys.load(Ordering::Acquire), Ordering::Relaxed);
         for i in 0..4 {
-            new_node.children_addr[i].store(self.children_addr[i].load(Ordering::Acquire));
+            new_node.children_addr[i].store(children_addr[i].load(Ordering::Acquire));
         }
-        new_node.children_cnt.store(self.children_cnt.load(Odering::Acquire));
+        new_node.children_cnt.store(4, Ordering::Release);
         new_node
     }
 
@@ -445,7 +450,7 @@ impl Node256 {
 }
 
 impl Node for Node256 {
-    pub fn find_child(&self, partial_key: u8) -> *mut Node {
+    pub fn find_child(&self, partial_key: u8) -> Box<Node> {
         self.children_addr[partial_key as usize].load(Ordering::Acquire)
     }
 
@@ -454,5 +459,8 @@ impl Node for Node256 {
     }
 
     pub fn is_full(&self) -> bool { false }
+
+    pub fn grow(&self) -> Box<Node> {
+        !unimplemented()
+    }
 }
-*/

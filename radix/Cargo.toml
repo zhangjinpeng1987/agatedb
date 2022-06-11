@@ -1,7 +1,10 @@
 [package]
 name = "radix"
 version = "0.1.0"
-edition = "2021"
+edition = "2022"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+radix_tree = "0.2.1"
+trie_rs = "0.1"
