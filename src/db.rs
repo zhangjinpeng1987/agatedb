@@ -371,9 +371,7 @@ impl Core {
             )?
         };
 
-        self.lvctl.add_l0_table(table)?;
-
-        Ok(())
+        self.lvctl.add_l0_table(table)
     }
 
     fn flush_memtable(&self) -> Result<()> {
